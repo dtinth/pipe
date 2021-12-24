@@ -44,10 +44,11 @@
       class PipeController extends Stimulus.Controller {
         static targets = ['status', 'form', 'inbox']
         connect() {
+          const channelName = new URLSearchParams(location.search).get('ch')
           const activePeers = new Set()
           const p2pt = new p2pkit.P2PT(
             trackersAnnounceURLs,
-            'pipe.spacet.me|' + new URLSearchParams(location.search).get('ch'),
+            'pipe.spacet.me|' + channelName,
           )
 
           this.p2pt = p2pt
@@ -64,7 +65,8 @@
             const message =
               `Connected to ${pluralize(activePeers.size, 'peer')}, ` +
               `discovered through ${trackerStats.connected} / ` +
-              `${pluralize(trackerStats.total, 'tracker')}` +
+              `${pluralize(trackerStats.total, 'tracker')} ` +
+              `with channel name "${channelName}"` +
               list
             this.statusTarget.innerText = message
           }
