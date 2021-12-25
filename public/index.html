@@ -59,8 +59,9 @@
               <input
                 class="input text-xl text-center"
                 size="24"
-                placeholder="Room name"
+                placeholder="MyRoomName"
                 name="name"
+                data-action="lobby#validate"
               />
               <input type="submit" class="btn text-xl" value="Enter" />
             </div>
@@ -228,12 +229,21 @@
 
         checkHash() {
           const targetChannelName = location.hash.match(/^#(\w+)/)?.[1]
-          if (targetChannelName) {
-            this.withChannelTarget.hidden = false
-            this.withoutChannelTarget.hidden = true
-            this.start(targetChannelName)
+          if (this.channelName) {
+            if (this.channelName !== targetChannelName) {
+              location.reload()
+            } else {
+              // OK
+            }
           } else {
-            this.withoutChannelTarget.hidden = false
+            if (targetChannelName) {
+              this.withChannelTarget.hidden = false
+              this.withoutChannelTarget.hidden = true
+              this.start(targetChannelName)
+              this.channelName = targetChannelName
+            } else {
+              this.withoutChannelTarget.hidden = false
+            }
           }
         }
       }
@@ -244,6 +254,9 @@
         enterRoom(e) {
           e.preventDefault()
           location.hash = '#' + this.formTarget.name.value
+        }
+        validate(e) {
+          e.target.value = e.target.value.replace(/\W/g, '')
         }
       }
       app.register('lobby', LobbyController)
