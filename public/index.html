@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pipe.spacet.me</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="bg-#353433 text-#e9e8e7">
+    <div
+      data-controller="pipe inbox layout"
+      data-action="hashchange@window->pipe#checkHash pipe:received->inbox#add"
+    >
+      <div
+        data-layout-target="sidebar"
+        class="
+          fixed
+          inset-0
+          z-10
+          bg-#252423
+          p-6
+          border-r border-#454443
+          hidden
+          md:w-[320px] md:right-auto md:block
+        "
+      >
+        <button
+          class="text-#8b8685 absolute top-4 right-4 md:hidden"
+          data-action="click->layout#toggle"
+        >
+          <i data-feather="x"></i>
+        </button>
+        <h1 class="text-#8b8685 font-bold text-3xl">pipe.spacet.me</h1>
+        <p class="my-4">
+          A simple web-based tool to send text to another device via WebRTC.
+        </p>
+      </div>
+      <div class="md:ml-[320px] p-6">
+        <div class="flex mb-4 md:hidden">
+          <strong class="text-#8b8685">pipe.spacet.me</strong>
+          <button
+            class="text-#8b8685 ml-auto"
+            data-action="click->layout#toggle"
+          >
+            about
+          </button>
+        </div>
+        <section data-pipe-target="withoutChannel" class="panel" hidden>
+          <h2 class="panel-title">Welcome</h2>
+          <form
+            class="p-6 text-center"
+            data-controller="lobby"
+            data-action="lobby#enterRoom"
+            data-lobby-target="form"
+          >
+            Please enter a room name.
+            <div class="mt-4">
+              <input
+                class="input text-xl text-center"
+                size="24"
+                placeholder="Room name"
+                name="name"
+              />
+              <input type="submit" class="btn text-xl" value="Enter" />
+            </div>
+          </form>
+        </section>
+
+        <div data-pipe-target="withChannel" hidden>
+          <section class="panel">
+            <h2 class="panel-title">
+              Send message to channel “<span data-pipe-target="channelName"
+                >…</span
+              >”
+            </h2>
+            <form data-action="pipe#send" data-pipe-target="form" class="p-3">
+              <textarea
+                name="message"
+                class="input w-full block mb-3"
+              ></textarea>
+              <div class="flex items-center">
+                <div
+                  data-pipe-target="status"
+                  class="text-#8b8685 flex-auto"
+                ></div>
+                <div class="">
+                  <input
+                    class="btn"
+                    type="submit"
+                    data-pipe-target="sendButton"
+                    value="Send to other peers"
+                  />
+                </div>
+              </div>
+            </form>
+          </section>
+          <h2 class="text-center mt-8 mb-6 text-#8b8685 font-bold">
+            — Inbox —
+          </h2>
+          <ul data-inbox-target="inbox"></ul>
+        </div>
+      </div>
+    </div>
+    <script
+      src="https://cdn.jsdelivr.net/npm/p2pkit@0.0.0-2/dist/index.js"
+      integrity="sha256-IBqKNNdZBkvlyBDTBnPO57idR/RhhMygjQ59d9MsNZ4="
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@hotwired/stimulus@3.0.1/dist/stimulus.umd.js"
+      integrity="sha256-t5UIE9c/7eTO5WJEMDEFMlnIQiissc/vDpisFBYiJw4="
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/feather-icons@4.28.0/dist/feather.min.js"
+      integrity="sha256-XfzdiC+S1keia+s9l07y7ye5a874sBq67zK4u7LTjvk="
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      const trackersAnnounceURLs = [
+        'wss://tracker.btorrent.xyz',
+        'wss://tracker.openwebtorrent.com',
+        'wss://tracker.fastcast.nz',
+        'wss://tracker.sloppyta.co:443/',
+        'wss://tracker.novage.com.ua:443/',
+        'wss://spacetradersapi-chatbox.herokuapp.com:443/announce',
+        'wss://tracker.files.fm:7073/announce',
+      ]
+
+      const pluralize = (count, word, plural = word + 's') =>
+        `${count} ${count === 1 ? word : plural}`
+      const app = Stimulus.Application.start()
+
+      class PipeController extends Stimulus.Controller {
+        static targets = [
+          'status',
+          'form',
+          'channelName',
+          'withChannel',
+          'withoutChannel',
+          'sendButton',
+        ]
+
+        connect() {
+          this.checkHash()
+          window.pipe = this
+        }
+
+        setText(targets, text) {
+          targets.forEach((target) => {
+            target.textContent = text
+          })
+        }
+
+        start(channelName) {
+          const activePeers = new Set()
+          const p2pt = new p2pkit.P2PT(
+            trackersAnnounceURLs,
+            'pipe.spacet.me|' + channelName,
+          )
+
+          this.p2pt = p2pt
+          this.activePeers = activePeers
+
+          let trackerStats = { connected: 0, total: 0 }
+          const updateStats = () => {
+            const list =
+              activePeers.size > 0
+                ? `: ${Array.from(activePeers)
+                    .map((p) => p.remoteAddress || String(p.id).slice(0, 8))
+                    .join(', ')}`
+                : ''
+            const message =
+              `${trackerStats.connected} / ` +
+              `${pluralize(trackerStats.total, 'tracker')} connected`
+            this.setText(this.statusTargets, message)
+            this.setText(this.channelNameTargets, channelName)
+            this.sendButtonTarget.value = `Send to ${pluralize(
+              activePeers.size,
+              'other peer',
+            )}`
+            this.sendButtonTarget.disabled = activePeers.size === 0
+          }
+          p2pt.on('trackerwarning', (error, stats) => {
+            console.warn(error)
+            trackerStats = stats
+            updateStats()
+          })
+          p2pt.on('trackerconnect', (tracker, stats) => {
+            trackerStats = stats
+            updateStats()
+          })
+          p2pt.on('peerconnect', (peer) => {
+            console.log({ peer })
+            activePeers.add(peer)
+            updateStats()
+          })
+          p2pt.on('peerclose', (peer) => {
+            activePeers.delete(peer)
+            updateStats()
+          })
+          p2pt.on('msg', (peer, message) => {
+            if (message.text) {
+              const remote = peer.remoteAddress || String(peer.id).slice(0, 8)
+              this.dispatch('received', {
+                detail: {
+                  remote,
+                  message,
+                },
+              })
+            }
+          })
+
+          updateStats()
+          p2pt.start()
+        }
+
+        send(e) {
+          e.preventDefault()
+          const { p2pt, activePeers } = this
+          for (const peer of activePeers) {
+            p2pt.send(peer, {
+              text: this.formTarget.message.value,
+            })
+          }
+        }
+
+        checkHash() {
+          const targetChannelName = location.hash.match(/^#(\w+)/)?.[1]
+          if (targetChannelName) {
+            this.withChannelTarget.hidden = false
+            this.withoutChannelTarget.hidden = true
+            this.start(targetChannelName)
+          } else {
+            this.withoutChannelTarget.hidden = false
+          }
+        }
+      }
+      app.register('pipe', PipeController)
+
+      class LobbyController extends Stimulus.Controller {
+        static targets = ['form']
+        enterRoom(e) {
+          e.preventDefault()
+          location.hash = '#' + this.formTarget.name.value
+        }
+      }
+      app.register('lobby', LobbyController)
+
+      class InboxController extends Stimulus.Controller {
+        static targets = ['inbox']
+        add(e) {
+          const { remote, message } = e.detail
+          const li = document.createElement('li')
+          li.innerHTML = `
+            <div class="my-4">
+              <div class="panel">
+                <h3 class="panel-title js-title"></h3>
+                <div class="p-3" data-controller="clipboard">
+                  <textarea readonly class="js-text w-full input block" data-clipboard-target="source"></textarea>
+                  <div class="flex mt-3 justify-end">
+                    <input type="button" class="btn" value="Copy" data-action="click->clipboard#copy" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          `
+          li.querySelector('.js-title').textContent = `${remote} sent:`
+          li.querySelector('.js-text').value = message.text
+          this.inboxTarget.insertBefore(li, this.inboxTarget.firstChild)
+        }
+      }
+      app.register('inbox', InboxController)
+
+      class ClipboardController extends Stimulus.Controller {
+        static targets = ['source']
+        copy() {
+          this.sourceTarget.focus()
+          this.sourceTarget.select()
+          document.execCommand('copy')
+        }
+      }
+      app.register('clipboard', ClipboardController)
+
+      class LayoutController extends Stimulus.Controller {
+        static targets = ['sidebar']
+        toggle() {
+          this.sidebarTarget.classList.toggle('hidden')
+        }
+      }
+      app.register('layout', LayoutController)
+
+      feather.replace()
+    </script>
+  </body>
+</html>

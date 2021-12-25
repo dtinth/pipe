@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.panel {
+  @apply mb-4 bg-#252423 rounded border border-#555453 shadow-md overflow-hidden;
+}
+.panel-title {
+  @apply text-#8b8685 font-bold py-1 px-3 bg-glossy border-b border-#454443;
+}
+.input {
+  @apply bg-emboss rounded border border-#454443 hover:border-#555453 active:border-#8b8685 py-1 px-2 shadow placeholder-#8b8685;
+}
+.btn {
+  @apply bg-bevel rounded border border-#454443 hover:border-#555453 active:border-#8b8685 py-1 px-4 shadow disabled:opacity-50 disabled:text-#8b8685;
+}
